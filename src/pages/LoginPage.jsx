@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+
 function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +29,7 @@ function LoginPage() {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
