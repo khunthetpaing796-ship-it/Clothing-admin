@@ -9,40 +9,77 @@ function Layout({ showAlert }) {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
   });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+  // Store settings – load from localStorage
+  const [storeSettings, setStoreSettings] = useState(() => {
+    const saved = localStorage.getItem('storeSettings');
+    return saved
+      ? JSON.parse(saved)
+      : {
+          storeName: '',
+          adminName: '',
+          adminEmail: '',
+          currency: '',
+          lowStockAlert: 10,
+          address: '',
+          phone: '',
+        };
+  });
+
+  // Persist settings changes
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    localStorage.setItem('storeSettings', JSON.stringify(storeSettings));
+  }, [storeSettings]);
+
+  // Responsive logic
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+  const isDesktop = windowWidth >= 1024;
+
+  const effectiveCollapsed = isTablet ? true : (isDesktop ? isCollapsed : false);
+
   const toggleCollapse = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem('sidebarCollapsed', newState);
+    if (isDesktop) {
+      const newState = !isCollapsed;
+      setIsCollapsed(newState);
+      localStorage.setItem('sidebarCollapsed', newState);
+    }
   };
 
-  const desktopSidebarWidth = isCollapsed ? 'w-20' : 'w-64';
+  const desktopSidebarWidth = effectiveCollapsed ? 'w-20' : 'w-64';
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
-      {/* Sidebar - desktop always visible, mobile drawer */}
-      <div className={`fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-900 shadow-xl transform transition-transform duration-300 lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopSidebarWidth}`}>
-        <Sidebar 
-          onClose={() => setSidebarOpen(false)} 
-          isMobile={isMobile} 
-          isCollapsed={isCollapsed} 
-          toggleCollapse={toggleCollapse} 
+      {/* Sidebar */}
+      <div className={`
+        fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-900 shadow-xl transform transition-transform duration-300
+        lg:relative lg:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${desktopSidebarWidth}
+      `}>
+        <Sidebar
+          onClose={() => setSidebarOpen(false)}
+          isMobile={isMobile}
+          isCollapsed={effectiveCollapsed}
+          toggleCollapse={toggleCollapse}
         />
       </div>
-      {sidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      {/* Main content - no margin, just flex-1 */}
-      <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet context={{ showAlert }} />
+          <Outlet context={{ showAlert, storeSettings, setStoreSettings }} />
         </main>
       </div>
     </div>
