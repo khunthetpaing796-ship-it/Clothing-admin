@@ -12,15 +12,15 @@ function DashboardCards() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {cards.map((card, i) => (
-        <div key={i} className="card p-6 hover:scale-105 transition-transform duration-300">
+        <div key={i} className="card p-6 hover:scale-105 transition-transform duration-300 bg-gradient-to-br from-white to-emerald-50 dark:from-gray-800 dark:to-gray-900">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{card.title}</p>
-              <p className="text-3xl font-bold mt-2 text-gray-800 dark:text-white">{card.value}</p>
-              <p className="text-green-600 dark:text-green-400 text-sm mt-1">{card.change} from last month</p>
+              <p className="text-2xl font-bold mt-2 text-gray-800 dark:text-white">{card.value}</p>
+              <p className="text-green-600 dark:text-green-400 text-xs mt-1">{card.change} from last month</p>
             </div>
-            <div className={`w-12 h-12 bg-gradient-to-r ${card.color} rounded-xl flex items-center justify-center shadow-lg`}>
-              <card.icon className="text-white" size={24} />
+            <div className={`w-10 h-10 bg-gradient-to-r ${card.color} rounded-xl flex items-center justify-center shadow-lg`}>
+              <card.icon className="text-white w-5 h-5" size={24} />
             </div>
           </div>
         </div>
