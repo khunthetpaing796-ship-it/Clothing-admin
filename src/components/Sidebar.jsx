@@ -13,7 +13,7 @@ const menuItems = [
   // { path: '/orders', name: 'Orders', icon: FiShoppingCart },
   // { path: '/customers', name: 'Customers', icon: FiUsers },
   { path: '/upload', name: 'Upload Clothes', icon: FiUploadCloud },
-  // { path: '/settings', name: 'Settings', icon: FiSettings },
+  { path: '/settings', name: 'Settings', icon: FiSettings },
 ];
 
 function Sidebar({ onClose, isMobile, isCollapsed, toggleCollapse }) {
@@ -30,8 +30,8 @@ function Sidebar({ onClose, isMobile, isCollapsed, toggleCollapse }) {
   return (
     <div className={`
       h-full flex flex-col transition-all duration-300
-      ${collapsed ? 'w-20' : 'w-64'}
-      bg-white dark:bg-gray-900
+      ${collapsed ? 'w-20' : 'w-64'} 
+      bg-white dark:bg-gray-900 shadow-2xl dark:shadow-yellow-50 outline-none rounded-lg
       border-r border-gray-200 dark:border-gray-800
     `}>
       {/* Header with logo and toggle */}
