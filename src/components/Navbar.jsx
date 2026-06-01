@@ -8,11 +8,11 @@ function Navbar({ onMenuClick }) {
   const { user } = useAuth(); // get logged-in user
 
   // Extract display name (e.g., "Admin" or first part of email)
-  const displayName = user?.email?.split('@')[0] || 'Admin';
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Admin';
   const displayEmail = user?.email || 'admin@clothify.com';
 
   return (
-    <header className="bg-transparent border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 transition-colors">
+    <header className="bg-transparent shadow-2xl dark:shadow-gray-700 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 transition-colors">
       <div className="px-4 md:px-6 py-3 flex items-center justify-between">
         <button onClick={onMenuClick} className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
           <FiMenu size={22} className="text-gray-700 dark:text-gray-300" />
@@ -28,10 +28,10 @@ function Navbar({ onMenuClick }) {
             {theme === 'light' ? <FiMoon size={20} className="text-gray-700" /> : <FiSun size={20} className="text-yellow-400" />}
           </button>
           {/* Notifications */}
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+          {/* <button className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <FiBell size={20} className="text-gray-700 dark:text-gray-300" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          </button> */}
           {/* User info (dynamic) */}
           <div className="flex items-center space-x-3 pl-3 border-l border-gray-200 dark:border-gray-700">
             <div className="w-8 h-8 bg-gradient-to-r from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white font-medium">
