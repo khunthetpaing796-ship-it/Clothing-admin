@@ -8,6 +8,7 @@ function ProductTable({ products, onEdit, onDelete, loading }) {
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
 
+
   const categories = ['Category', ...new Set(products.map(p => p.category))];
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) &&
@@ -59,7 +60,7 @@ function ProductTable({ products, onEdit, onDelete, loading }) {
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {paginated.map(product => (
-              <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+              <tr key={product.id} className="hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-3">
                     <img src={product.images[0]} alt={product.name} className="w-12 h-12 rounded-lg object-cover" />
@@ -87,9 +88,9 @@ function ProductTable({ products, onEdit, onDelete, loading }) {
       </div>
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t flex justify-between items-center">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 border rounded-lg disabled:opacity-50">Previous</button>
+          <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 border rounded-lg disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600">Previous</button>
           <span>Page {page} of {totalPages}</span>
-          <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 border rounded-lg disabled:opacity-50">Next</button>
+          <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 border rounded-lg disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600 ">Next</button>
         </div>
       )}
     </div>
