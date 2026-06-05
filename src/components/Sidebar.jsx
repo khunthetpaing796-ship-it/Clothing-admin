@@ -2,7 +2,8 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   FiHome, FiPackage, FiGrid, FiShoppingCart, FiUsers,
-  FiUploadCloud, FiSettings, FiX, FiLogOut, FiChevronLeft, FiChevronRight
+  FiUploadCloud, FiSettings, FiX, FiLogOut, FiChevronLeft, FiChevronRight,
+  FiUserPlus
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,6 +14,7 @@ const menuItems = [
   // { path: '/orders', name: 'Orders', icon: FiShoppingCart },
   // { path: '/customers', name: 'Customers', icon: FiUsers },
   { path: '/upload', name: 'Upload Clothes', icon: FiUploadCloud },
+  { path: '/user-management', name: 'User Management', icon: FiUserPlus },
   { path: '/settings', name: 'Settings', icon: FiSettings },
 ];
 
