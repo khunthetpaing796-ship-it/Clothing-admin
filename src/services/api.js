@@ -196,3 +196,31 @@ export const updateProduct = async (id, productData) => {
 export const deleteProduct = async (id) => {
   return request(`/products/${id}`, { method: 'DELETE' });
 };
+
+// Add these functions to your existing api.js
+
+// Add to your existing api.js
+// ==================== User APIs (matching backend) ====================
+
+// GET /admin/users/pending – fetch all pending registration requests
+export const getPendingUsers = async () => {
+  return request('/admin/users/pending');
+};
+
+// GET /admin/users/pending/:id – fetch details of a single pending user (optional, but you may use it)
+export const getPendingUserById = async (id) => {
+  return request(`/admin/users/pending/${id}`);
+};
+
+// PATCH /admin/users/:id/action – accept or reject a user (action: 'ACCEPT' or 'REJECT')
+export const updateUserAction = async (userId, action) => {
+  return request(`/admin/users/${userId}/action`, {
+    method: 'PATCH',
+    body: { action },
+  });
+};
+
+// GET /admin/users?status=APPROVED (or PENDING, REJECTED)
+// export const getUsersByStatus = async (status) => {
+//   return request(`/admin/users?status=${status.toUpperCase()}`);
+// };
