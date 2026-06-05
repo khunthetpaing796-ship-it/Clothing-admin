@@ -8,7 +8,8 @@ import ProductsPage from './pages/ProductsPage';
 import UploadPage from './pages/UploadPage';
 import CategoriesPage from './pages/CategoriesPage';
 import OrdersPage from './pages/OrdersPage';
-import CustomersPage from './pages/CustomersPage';
+// import CustomersPage from './pages/CustomersPage';
+import UserManagementPage from './pages/UserManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import Alert from './components/Alert';
 
@@ -43,7 +44,8 @@ function App() {
           <Route path="upload/:id" element={<UploadPage showAlert={showAlert} />} />
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="orders" element={<OrdersPage />} />
-          <Route path="customers" element={<CustomersPage />} />
+          {/* <Route path="customers" element={<CustomersPage />} /> */}
+          <Route path="user-management" element={<UserManagementPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
