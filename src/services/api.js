@@ -98,7 +98,7 @@ const handleResponse = async (response) => {
 };
 
 // Vite proxy သုံးမယ် (သို့) တိုက်ရိုက် URL သုံးမယ်
-const API_BASE_URL = 'https://anthology-trombone-knelt.ngrok-free.dev';  // ngrok URL တိုက်ရိုက်
+const API_BASE_URL = 'https://clothing-store-api-vt3r.onrender.com';  // ngrok URL တိုက်ရိုက်
 
 const request = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`; // Vite proxy မှတဆင့်
@@ -197,9 +197,7 @@ export const deleteProduct = async (id) => {
   return request(`/products/${id}`, { method: 'DELETE' });
 };
 
-// Add these functions to your existing api.js
 
-// Add to your existing api.js
 // ==================== User APIs (matching backend) ====================
 
 // GET /admin/users/pending – fetch all pending registration requests
@@ -220,7 +218,47 @@ export const updateUserAction = async (userId, action) => {
   });
 };
 
-// GET /admin/users?status=APPROVED (or PENDING, REJECTED)
-// export const getUsersByStatus = async (status) => {
-//   return request(`/admin/users?status=${status.toUpperCase()}`);
+// ==================== Order APIs ====================
+
+export const getOrders = async () => {
+  const data = await request('/orders/admin');
+
+  // Extract orders array (support both direct array and { orders: [...] } format)
+  let ordersArray = Array.isArray(data) ? data : data?.orders || [];
+
+  if (!Array.isArray(ordersArray)) return [];
+
+  // Normalize each order
+  return ordersArray.map(order => ({
+    ...order,
+    status: order.status?.toUpperCase(),       // "PENDING" (already uppercase)
+    total_amount: Number(order.total_amount),
+    user: order.user || {},
+    order_lines: (order.order_lines || []).map(line => ({
+      ...line,
+      price: Number(line.price),
+      variant: {
+        ...line.variant,
+        color: line.variant?.color || 'N/A',
+        product: {
+          ...line.variant?.product,
+          name: line.variant?.product?.name || 'Unknown Product',
+        },
+      },
+    })),
+  }));
+};
+
+export const updateOrderStatus = async (orderId, newStatus, apologyNote = '') => {
+  return request(`/orders/admin/${orderId}/status`, {
+    method: 'PATCH',
+    body: { status: newStatus, apologyNote },
+  });
+};
+// Add this to your api.js file, together with the other order APIs
+
+// export const deleteOrder = async (orderId) => {
+//   return request(`/orders/admin/${orderId}`, {
+//     method: 'DELETE',
+//   });
 // };
