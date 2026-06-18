@@ -98,119 +98,74 @@ const handleResponse = async (response) => {
 };
 
 // Vite proxy သုံးမယ် (သို့) တိုက်ရိုက် URL သုံးမယ်
-const API_BASE_URL = 'https://clothing-store-api-vt3r.onrender.com';  // ngrok URL တိုက်ရိုက်
+const API_BASE_URL = 'https://anthology-trombone-knelt.ngrok-free.dev';  // ngrok URL တိုက်ရိုက်
 
 const request = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`; // Vite proxy မှတဆင့်
-  const headers = { 'Content-Type': 'application/json','ngrok-skip-browser-warning': 'true', ...options.headers };
-  const config = { method: options.method || 'GET', headers, ...options };
-  if (config.body && typeof config.body === 'object') {
-    config.body = JSON.stringify(config.body);
+  const url = `${API_BASE_URL}${endpoint}`;
+  const method = options.method || 'GET';
+  const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...options.headers };
+  
+  const config = { method, headers };
+  
+  // body ကို method ပေါ်မူတည်ပြီး ထည့်ပါ (GET/HEAD ဆိုရင် မထည့်ပါနဲ့)
+  if (options.body && method !== 'GET' && method !== 'HEAD') {
+    config.body = JSON.stringify(options.body);
   }
+  
   const response = await fetch(url, config);
   return handleResponse(response);
 };
 
-// ==================== Transform: Backend → Frontend ====================
-const transformToFrontend = (backendProduct) => {
-  const firstVariant = backendProduct.variants?.[0] || {};
-  const primaryImage = backendProduct.images?.find(img => img.is_primary)?.image_url
-                     || backendProduct.images?.[0]?.image_url
-                     || '';
-  const statusMap = { IN_STOCK: 'In Stock', OUT_OF_STOCK: 'Out of Stock' };
-  const frontendStatus = statusMap[firstVariant.status] || 'Out of Stock';
-
-  return {
-    id: String(backendProduct.id),
-    name: backendProduct.name,
-    description: backendProduct.description || '',
-    category: backendProduct.category,
-    brand: backendProduct.brand || '',
-    gender: backendProduct.gender || '',
-    price: backendProduct.price,
-    discountPrice: null,               // backend doesn't have discountPrice
-    size: firstVariant.size || '',
-    color: firstVariant.color || '',
-    stock: firstVariant.stock || 0,
-    status: frontendStatus,
-    images: [primaryImage].filter(Boolean),
-    featured: false,
-    created_at: backendProduct.created_at,
-    updated_at: backendProduct.updated_at,
-  };
-};
-
-// ==================== Transform: Frontend → Backend ====================
-const transformToBackend = (frontendProduct) => {
-  const statusMap = { 'In Stock': 'IN_STOCK', 'Out of Stock': 'OUT_OF_STOCK' };
-  const backendStatus = statusMap[frontendProduct.status] || 'OUT_OF_STOCK';
-
-  const variants = [{
-    size: frontendProduct.size || '',
-    color: frontendProduct.color || '',
-    stock: frontendProduct.stock || 0,
-    status: backendStatus,
-  }];
-
-  const images = (frontendProduct.images || []).map((url, idx) => ({
-    image_url: url,
-    is_primary: idx === 0,
-  }));
-
-  return {
-    name: frontendProduct.name,
-    description: frontendProduct.description || '',
-    category: frontendProduct.category,
-    brand: frontendProduct.brand || '',
-    gender: frontendProduct.gender || '',
-    price: frontendProduct.price,
-    variants,
-    images,
-    // discountPrice နဲ့ featured ကို မပို့ပါ
-  };
-};
-
 // ==================== Product APIs ====================
 export const getProducts = async () => {
-  const data = await request('/products');
-  return data.map(transformToFrontend);
+  return request('/products'); // returns nested array: variants, images
 };
 
 export const getProduct = async (id) => {
-  const data = await request(`/products/${id}`);
-  return transformToFrontend(data);
+  return request(`/products/${id}`);
 };
 
+// ==================== Product APIs ====================
 export const createProduct = async (productData) => {
-  const backendData = transformToBackend(productData);
-  const created = await request('/products', { method: 'POST', body: backendData });
-  return transformToFrontend(created);
+  // productData already in the required nested format
+  return request('/products', { method: 'POST', body: productData });
 };
 
 export const updateProduct = async (id, productData) => {
-  const backendData = transformToBackend(productData);
-  const updated = await request(`/products/${id}`, { method: 'GET', body: backendData });
-  return transformToFrontend(updated);
+  // productData contains variantId, size, color, stock, status, etc.
+  const body = {
+    name: productData.name,
+    description: productData.description,
+    category: productData.category,
+    brand: productData.brand,
+    gender: productData.gender,
+    price: productData.price,
+    variants: [
+      {
+        // Include the variant ID if editing (so the backend knows which variant to update)
+        ...(productData.variantId && { id: productData.variantId }),
+        size: productData.size,
+        color: productData.color,
+        stock: productData.stock,
+        status: productData.status,
+      },
+    ],
+    images: productData.images, // already in the correct format
+  };
+  return request(`/products/${id}`, { method: 'PATCH', body });
 };
 
 export const deleteProduct = async (id) => {
   return request(`/products/${id}`, { method: 'DELETE' });
 };
 
-
-// ==================== User APIs (matching backend) ====================
-
-// GET /admin/users/pending – fetch all pending registration requests
+// ==================== User APIs ====================
 export const getPendingUsers = async () => {
-  return request('/admin/users/pending');
+  const data = await request('/admin/users/pending');
+  // status က "PENDING", "APPROVED", "REJECTED" ပြန်ပေးမယ်
+  return data; // raw data ကို frontend မှာ ပြန်ပြောင်းမယ်
 };
 
-// GET /admin/users/pending/:id – fetch details of a single pending user (optional, but you may use it)
-export const getPendingUserById = async (id) => {
-  return request(`/admin/users/pending/${id}`);
-};
-
-// PATCH /admin/users/:id/action – accept or reject a user (action: 'ACCEPT' or 'REJECT')
 export const updateUserAction = async (userId, action) => {
   return request(`/admin/users/${userId}/action`, {
     method: 'PATCH',
@@ -218,7 +173,8 @@ export const updateUserAction = async (userId, action) => {
   });
 };
 
-// ==================== Order APIs ====================
+
+//==================== Order APIs ====================
 
 export const getOrders = async () => {
   const data = await request('/orders/admin');
@@ -255,10 +211,17 @@ export const updateOrderStatus = async (orderId, newStatus, apologyNote = '') =>
     body: { status: newStatus, apologyNote },
   });
 };
-// Add this to your api.js file, together with the other order APIs
 
-// export const deleteOrder = async (orderId) => {
-//   return request(`/orders/admin/${orderId}`, {
-//     method: 'DELETE',
-//   });
-// };
+export const deleteOrder = async (orderId) => {
+  return request(`/orders/admin/${orderId}`, {
+    method: 'DELETE',
+  });
+};
+
+// ==================== Notification API ====================
+export const createNotification = async (userId, orderId, title, message) => {
+  return request('/notifications/user/{userId}', {
+    method: 'POST',
+    body: { userId, orderId, title, message },
+  });
+};

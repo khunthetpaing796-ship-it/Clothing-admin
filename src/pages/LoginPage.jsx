@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
+import { useLanguage } from '../context/LanguageContext';
 
 function LoginPage() {
+  const { t } = useLanguage(); // ဘာသာပြန် function ကိုရယူပါ
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -16,7 +17,7 @@ function LoginPage() {
     e.preventDefault();
     setError('');
     if (!email || !password) {
-      setError('All fields are required');
+      setError(t('all_fields_required')); // static message ကို ဘာသာပြန်ပါ
       return;
     }
     setLoading(true);
@@ -24,12 +25,13 @@ function LoginPage() {
       await login(email, password);
       navigate('/');
     } catch (err) {
+      // Backend မှလာသော error message ကို ဘာသာပြန်မရနိုင်သော်လည်း သင့်အနေနဲ့ mapping လုပ်နိုင်ပါသည်။
+      // ဤနေရာတွင် ရိုးရိုးပြသထားပါမည်။
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
-  
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -40,8 +42,8 @@ function LoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-          <p className="text-sm text-slate-400">Sign in to access your admin panel</p>
+          <h1 className="text-2xl font-bold text-white">{t('login_title')}</h1>
+          <p className="text-sm text-slate-400">{t('login_subtitle')}</p>
         </div>
         {error && (
           <div className="flex items-center p-3 text-red-400 border border-red-800 rounded-lg bg-red-900/20 text-sm">
@@ -50,20 +52,40 @@ function LoginPage() {
         )}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="text-sm font-medium text-slate-300">Admin Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500" placeholder="admin@company.com" />
+            <label className="text-sm font-medium text-slate-300">{t('email_label')}</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full mt-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500"
+              placeholder="admin@company.com"
+            />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300">Password</label>
+            <label className="text-sm font-medium text-slate-300">{t('password_label')}</label>
             <div className="relative mt-1">
-              <input type={show ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200" placeholder="••••••••" />
-              <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-3 text-slate-400 text-sm">
-                {show ? 'Hide' : 'Show'}
+              <input
+                type={show ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShow(!show)}
+                className="absolute right-3 top-3 text-slate-400 text-sm"
+              >
+                {show ? t('hide') : t('show')}
               </button>
             </div>
           </div>
-          <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-500 transition">
-            {loading ? 'Authenticating...' : 'Sign In'}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-500 transition"
+          >
+            {loading ? t('authenticating') : t('sign_in')}
           </button>
         </form>
       </div>

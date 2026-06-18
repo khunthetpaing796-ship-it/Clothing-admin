@@ -1,12 +1,15 @@
 // src/pages/UploadPage.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import UploadForm from '../components/UploadForm';
 import { getProduct, createProduct, updateProduct } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 function UploadPage({ showAlert }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [initial, setInitial] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(!!id);
@@ -15,22 +18,22 @@ function UploadPage({ showAlert }) {
     if (id) {
       getProduct(id)
         .then(setInitial)
-        .catch(() => showAlert('Product not found', 'error'))
+        .catch(() => showAlert(t('product_not_found'), 'error'))
         .finally(() => setFetching(false));
     }
-  }, [id, showAlert]);
+  }, [id, showAlert, t]);
 
   const handleSubmit = (data) => {
     setLoading(true);
     const promise = id ? updateProduct(id, data) : createProduct(data);
     promise
       .then(() => {
-        showAlert(id ? 'Product updated successfully' : 'Product created successfully');
+        showAlert(id ? t('product_updated') : t('product_created'), 'success');
         navigate('/products');
       })
       .catch((err) => {
         console.error('Save error:', err);
-        showAlert(err.message || 'Failed to save product', 'error');
+        showAlert(err.message || t('failed_to_save_product'), 'error');
       })
       .finally(() => setLoading(false));
   };
@@ -46,11 +49,11 @@ function UploadPage({ showAlert }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-          {id ? 'Edit Product' : 'Upload New Clothes'}
+        <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+          {id ? t('edit_product') : t('upload_clothes')}
         </h2>
-        <p className="text-gray-500 dark:text-gray-400">
-          {id ? 'Update product information' : 'Add a new product to your clothing store'}
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {id ? t('edit_product_description') : t('upload_clothes_description')}
         </p>
       </div>
       <UploadForm initialData={initial} onSubmit={handleSubmit} loading={loading} />

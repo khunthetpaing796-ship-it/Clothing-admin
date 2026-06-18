@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         if (email === 'admin@company.com' && password === 'password123') {
-          const userData = { email, role: 'admin' };
+          const userData = { email, name: 'Admin', role: 'admin' };
           localStorage.setItem('adminUser', JSON.stringify(userData));
           setUser(userData);
           resolve(userData);
@@ -27,13 +27,21 @@ export function AuthProvider({ children }) {
     });
   };
 
+  // New function to update user info
+  const updateUser = (updates) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem('adminUser', JSON.stringify(updatedUser));
+  };
+
   const logout = () => {
     localStorage.removeItem('adminUser');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

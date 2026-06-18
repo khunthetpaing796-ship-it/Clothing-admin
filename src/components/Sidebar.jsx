@@ -6,21 +6,25 @@ import {
   FiUserPlus
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
-const menuItems = [
-  { path: '/', name: 'Dashboard', icon: FiHome },
-  { path: '/products', name: 'Products', icon: FiPackage },
-  // { path: '/categories', name: 'Categories', icon: FiGrid },
-  // { path: '/orders', name: 'Orders', icon: FiShoppingCart },
-  // { path: '/customers', name: 'Customers', icon: FiUsers },
-  { path: '/upload', name: 'Upload Clothes', icon: FiUploadCloud },
-  { path: '/user-management', name: 'User Management', icon: FiUserPlus },
-  { path: '/settings', name: 'Settings', icon: FiSettings },
-];
+
 
 function Sidebar({ onClose, isMobile, isCollapsed, toggleCollapse }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
+
+  const menuItems = [
+    { path: '/', name: t('sidebar_dashboard'), icon: FiHome },
+    { path: '/products', name: t('sidebar_products'), icon: FiPackage },
+    // { path: '/categories', name: t('sidebar_categories'), icon: FiGrid },
+    { path: '/orders', name: t('sidebar_orders'), icon: FiShoppingCart },
+    // { path: '/customers', name: t('sidebar_customers'), icon: FiUsers },
+    { path: '/upload', name: t('sidebar_upload'), icon: FiUploadCloud },
+    { path: '/user-management', name: t('sidebar_users'), icon: FiUserPlus },
+    { path: '/settings', name: t('sidebar_settings'), icon: FiSettings },
+  ];
 
   const handleLogout = () => {
     logout();
@@ -97,7 +101,7 @@ function Sidebar({ onClose, isMobile, isCollapsed, toggleCollapse }) {
           title={collapsed ? 'Logout' : ''}
         >
           <FiLogOut size={20} />
-          {!collapsed && <span className="font-medium">Logout</span>}
+          {!collapsed && <span className="font-medium">{t('logout')}</span>}
         </button>
         {!collapsed && (
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
