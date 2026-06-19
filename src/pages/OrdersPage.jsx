@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiEye, FiX, FiSliders, FiPackage, FiUser, FiPlus, FiMinus, FiCheck, FiTrash2, FiRefreshCw } from 'react-icons/fi';
-import { getOrders, updateOrderStatus } from '../services/api';
+import { getOrders, updateOrderStatus, updateOrderItems, deleteOrder } from '../services/api';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -14,9 +14,9 @@ function OrdersPage({ showAlert }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(30); // countdown timer
+  const [secondsLeft, setSecondsLeft] = useState(30);
+  const [pendingChanges, setPendingChanges] = useState({});
   const countdownRef = useRef(null);
-  const refreshIntervalRef = useRef(null);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -49,7 +49,6 @@ function OrdersPage({ showAlert }) {
     });
   };
 
-  // Load orders – called on initial load, manual refresh, and auto‑refresh
   const loadOrders = async (showFullLoader = true) => {
     if (showFullLoader) {
       setLoading(true);
@@ -66,28 +65,21 @@ function OrdersPage({ showAlert }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      // Reset the countdown after a successful refresh
       setSecondsLeft(30);
     }
   };
 
-  // Manual refresh – resets the countdown
   const handleManualRefresh = () => {
     loadOrders(false);
   };
 
-  // Auto‑refresh using countdown
   useEffect(() => {
-    // Initial load
     loadOrders(true);
-
-    // Set up countdown interval (every 1 second)
     countdownRef.current = setInterval(() => {
       setSecondsLeft(prev => {
         if (prev <= 1) {
-          // Time to refresh
           loadOrders(false);
-          return 30; // reset after refresh
+          return 30;
         }
         return prev - 1;
       });
@@ -98,23 +90,47 @@ function OrdersPage({ showAlert }) {
     };
   }, []);
 
-  const handleUpdateQuantity = async (orderId, lineId, change) => {
+  // ----------------------------------------------------------------------
+  // အတိုးအလျော့ (Quantity +/-) – Optimistic UI + သိမ်းဆည်းရန်
+  // ----------------------------------------------------------------------
+  const handleUpdateQuantity = (orderId, lineId, change) => {
+    const order = orders.find(o => o.id === orderId);
+    const line = order?.order_lines.find(l => l.id === lineId);
+    if (!line) return;
+
+    const newQty = Math.max(0, line.quantity + change);
+    if (newQty === line.quantity) return;
+
+    // ၁. UI ကို ချက်ချင်းပြောင်းပါ (Optimistic Update)
     setOrders(prev =>
-      prev.map(order => {
-        if (order.id !== orderId) return order;
-        const updatedLines = order.order_lines.map(line =>
-          line.id === lineId
-            ? { ...line, quantity: Math.max(0, line.quantity + change) }
-            : line
-        ).filter(line => line.quantity > 0);
+      prev.map(o => {
+        if (o.id !== orderId) return o;
+        const updatedLines = o.order_lines.map(l =>
+          l.id === lineId ? { ...l, quantity: newQty } : l
+        );
         const newTotal = updatedLines.reduce((sum, l) => sum + l.price * l.quantity, 0);
-        const updatedOrder = { ...order, order_lines: updatedLines, total_amount: newTotal };
+        const updatedOrder = { ...o, order_lines: updatedLines, total_amount: newTotal };
         if (selectedOrder?.id === orderId) setSelectedOrder(updatedOrder);
         return updatedOrder;
       })
     );
+
+    // ၂. Pending Changes ကို သိမ်းပါ (Approve/Reject ချိန်တွင် တစ်ပြိုင်နက် ပို့ရန်)
+    setPendingChanges(prev => {
+      const orderChanges = prev[orderId] || [];
+      const existing = orderChanges.find(c => c.lineId === lineId);
+      if (existing) {
+        existing.newQty = newQty;
+      } else {
+        orderChanges.push({ lineId, newQty });
+      }
+      return { ...prev, [orderId]: orderChanges };
+    });
   };
 
+  // ----------------------------------------------------------------------
+  // Order Status Update (Approve / Reject) with Batch Update for Items
+  // ----------------------------------------------------------------------
   const handleUpdateStatus = (orderId, newStatus) => {
     const isReject = newStatus === 'REJECTED';
     const title = isReject ? t('cancel_order') : t('approve_order');
@@ -126,13 +142,34 @@ function OrdersPage({ showAlert }) {
 
     openConfirm(title, message, async () => {
       try {
+        // ၁. Pending Changes (အတိုးအလျော့) ရှိရင် ဦးစွာ သိမ်းပါ
+        const changes = pendingChanges[orderId] || [];
+        if (changes.length > 0) {
+          const items = changes.map(c => ({
+            order_line_id: c.lineId,
+            quantity: c.newQty,
+          }));
+          await updateOrderItems(orderId, items);
+          // သိမ်းပြီးရင် Pending Changes ကိုရှင်းပါ
+          setPendingChanges(prev => {
+            const newState = { ...prev };
+            delete newState[orderId];
+            return newState;
+          });
+        }
+
+        // ၂. Order Status ကို ပြောင်းပါ
         await updateOrderStatus(orderId, newStatus, apologyNote);
-        showAlert?.(`Order ${newStatus === 'REJECTED' ? t('cancelled') : t('approved')} ${t('successfully')}`, 'success');
-        // Refresh quietly and reset countdown
-        loadOrders(false);
+        showAlert?.(newStatus === 'REJECTED' ? t('order_cancelled') : t('order_approved'), 'success');
+
+        // ၃. ဒေတာအသစ် ပြန်ဆွဲပါ
+        await loadOrders(false);
+
+        // ၄. Detail Panel ပိတ်ပါ
         if (selectedOrder?.id === orderId) {
           setSelectedOrder(null);
           setApologyNote('');
+          setSelectedReason('');
         }
       } catch (err) {
         console.error('Status update failed', err);
@@ -141,6 +178,9 @@ function OrdersPage({ showAlert }) {
     }, confirmText, confirmVariant);
   };
 
+  // ----------------------------------------------------------------------
+  // Delete Order (local only – သင့်ဘက်မှာ API ရှိလျှင် ချိတ်ဆက်ပါ)
+  // ----------------------------------------------------------------------
   const handleDeleteOrder = (orderId, customerName) => {
     openConfirm(
       t('delete_order'),
@@ -158,6 +198,9 @@ function OrdersPage({ showAlert }) {
     );
   };
 
+  // ----------------------------------------------------------------------
+  // Filter & Sorting
+  // ----------------------------------------------------------------------
   const filteredOrders = orders.filter(order => order.status === activeTab);
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     const dateA = new Date(a.created_at);
@@ -185,39 +228,40 @@ function OrdersPage({ showAlert }) {
       <div className="w-full bg-white dark:bg-gray-900 border border-[#e2e8f0] dark:border-gray-800 rounded-2xl p-5 shadow-xs space-y-5">
         {/* Tabs + Sort + Refresh Button with Countdown */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-1 overflow-x-auto">
+          <div className="flex items-center space-x-1 overflow-x-auto pb-1">
             {['PENDING', 'APPROVED', 'COMPLETED', 'REJECTED'].map(tab => {
               const count = orders.filter(o => o.status === tab).length;
-              const labelKey = tab.toLowerCase(); // 'pending', 'approved', 'completed', 'rejected'
+              const labelKey = tab.toLowerCase();
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === tab
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    activeTab === tab
                       ? 'bg-[#eff6ff] dark:bg-blue-950/40 text-[#1d4ed8] dark:text-blue-400 font-semibold'
                       : 'text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:hover:text-white'
-                    }`}
+                  }`}
                 >
                   {t(labelKey)} ({count})
                 </button>
               );
             })}
-            {/* Refresh button with countdown */}
+            {/* Refresh button with countdown – Uncommented */}
             {/* <div className="flex items-center gap-1 ml-2">
               <button
                 onClick={handleManualRefresh}
                 className="p-1.5 text-gray-500 hover:text-blue-600 rounded-lg transition"
-                title="Refresh now"
+                title={t('refresh_now')}
                 disabled={refreshing}
               >
                 <FiRefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
               </button>
               {refreshing && (
-                <span className="text-xs text-gray-400 animate-pulse">Updating...</span>
+                <span className="text-xs text-gray-400 animate-pulse">{t('updating')}</span>
               )}
               {!refreshing && secondsLeft > 0 && (
                 <span className="text-xs text-gray-400 min-w-[80px]">
-                  Auto‑refresh in {secondsLeft}s
+                  {t('auto_refresh_in')} {secondsLeft}s
                 </span>
               )}
             </div> */}
@@ -231,61 +275,70 @@ function OrdersPage({ showAlert }) {
           </button>
         </div>
 
-        {/* Orders Table – unchanged */}
-        <div className="w-full overflow-x-auto border border-[#e2e8f0] dark:border-gray-700 rounded-xl">
-          <table className="w-full text-left border-collapse">
+        {/* Orders Table – No horizontal scroll, adaptive columns */}
+        <div className="w-full overflow-x-auto rounded-xl border border-[#e2e8f0] dark:border-gray-700">
+          <table className="w-full table-auto border-collapse">
             <thead>
               <tr className="bg-[#f8fafc] dark:bg-gray-800/50 border-b border-[#e2e8f0] dark:border-gray-700 text-xs font-semibold text-[#64748b] dark:text-gray-400 uppercase tracking-wider">
-                <th className="px-6 py-4">{t('order_id')}</th>
-                <th className="px-6 py-4">{t('name')}</th>
-                <th className="px-6 py-4">{t('email')}</th>
-                <th className="px-6 py-4">{t('phone')}</th>
-                <th className="px-6 py-4">{t('total_amount')}</th>
-                <th className="px-6 py-4 text-right">{t('actions')}</th>
+                <th className="px-4 py-3 text-left">{t('order_id')}</th>
+                <th className="px-4 py-3 text-left">{t('name')}</th>
+                <th className="px-4 py-3 text-left">{t('email')}</th>
+                <th className="px-4 py-3 text-left hidden sm:table-cell">{t('phone')}</th>
+                <th className="px-4 py-3 text-left">{t('total_amount')}</th>
+                <th className="px-4 py-3 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e2e8f0] dark:divide-gray-700 text-sm text-gray-700 dark:text-gray-300">
               {sortedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center py-24 text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-900">
+                  <td colSpan="6" className="text-center py-24 text-gray-400 dark:text-gray-500">
                     <p className="text-sm text-[#64748b] dark:text-gray-400">{t('no_records')}</p>
                   </td>
                 </tr>
               ) : (
                 sortedOrders.map(order => (
                   <tr key={order.id} className="hover:bg-[#f8fafc]/50 dark:hover:bg-gray-800/30 transition-all">
-                    <td className="px-6 py-4 font-mono text-sm font-medium text-gray-900 dark:text-white">{order.id}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 font-mono text-sm font-medium text-gray-900 dark:text-white break-all">
+                      {order.id}
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center space-x-3">
                         <img
                           src={order.user?.avatar_url || 'https://via.placeholder.com/40'}
                           alt=""
-                          className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                          className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700 flex-shrink-0"
                         />
-                        <span className="font-semibold text-gray-900 dark:text-white text-[15px]">{order.user?.name || 'N/A'}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white text-[15px] break-words">
+                          {order.user?.name || 'N/A'}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 font-medium">{order.user?.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">{order.user?.phone_no}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900 dark:text-white text-[15px]">
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 font-medium break-all">
+                      {order.user?.email}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono hidden sm:table-cell">
+                      {order.user?.phone_no}
+                      {console.log('order:', order)}
+                    </td>
+                    <td className="px-4 py-3 font-bold text-gray-900 dark:text-white text-[15px] whitespace-nowrap">
                       ${Number(order.total_amount || 0).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="inline-flex items-center justify-center p-2 border border-[#e2e8f0] dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-all"
+                          className="p-2 text-gray-500 hover:text-[#0070f3] dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg"
                           title={t('inspect_order')}
                         >
-                          <FiEye size={15} className="text-gray-400 dark:text-gray-500" />
+                          <FiEye size={18} />
                         </button>
                         {activeTab !== 'PENDING' && (
                           <button
                             onClick={() => handleDeleteOrder(order.id, order.user?.name || order.id)}
-                            className="inline-flex items-center justify-center p-2 border border-red-200 dark:border-red-900/40 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 transition-all"
+                            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg"
                             title={t('delete_order')}
                           >
-                            <FiTrash2 size={15} />
+                            <FiTrash2 size={18} />
                           </button>
                         )}
                       </div>
@@ -298,7 +351,7 @@ function OrdersPage({ showAlert }) {
         </div>
       </div>
 
-      {/* Order Detail Panel – unchanged (fully translated) */}
+      {/* Order Detail Panel – same as before, fully functional */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-gray-900/30 dark:bg-black/60 backdrop-blur-xs flex items-center justify-end z-50 p-0 sm:p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-gray-900 border-l sm:border border-[#e2e8f0] dark:border-gray-800 w-full max-w-lg h-full sm:h-[calc(100vh-2rem)] sm:rounded-2xl p-6 shadow-2xl relative flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-200">
