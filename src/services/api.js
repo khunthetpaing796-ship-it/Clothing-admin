@@ -212,6 +212,23 @@ export const updateOrderStatus = async (orderId, newStatus, apologyNote = '') =>
   });
 };
 
+// Order Line အရေအတွက် ပြင်ဆင်ရန် API
+export const updateOrderLine = async (orderId, lineId, quantity) => {
+  return request(`/orders/admin/${orderId}/lines/${lineId}`, {
+    method: 'PATCH',
+    body: { quantity },
+  });
+};
+
+// Order Items များကို အစုလိုက် အပ်ဒိတ်လုပ်ရန်
+export const updateOrderItems = async (orderId, items) => {
+  // items = [{ order_line_id: "xxx", quantity: 3 }, ...]
+  return request(`/orders/admin/${orderId}/items`, {
+    method: 'PATCH',
+    body: { items },
+  });
+};
+
 export const deleteOrder = async (orderId) => {
   return request(`/orders/admin/${orderId}`, {
     method: 'DELETE',
