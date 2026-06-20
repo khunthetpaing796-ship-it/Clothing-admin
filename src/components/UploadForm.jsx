@@ -8,24 +8,49 @@ const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '28', '30', '32', '34', '36'];
 const colors = ['Black', 'White', 'Blue', 'Red', 'Green', 'Yellow', 'Pink', 'Purple', 'Brown', 'Gray'];
 
 function UploadForm({ initialData, onSubmit, loading }) {
+  const { t } = useLanguage();
+
   const [formData, setFormData] = useState({
-    name: '', description: '', category: '', brand: '', gender: '', size: '', color: '',
-    price: '', stock: '', images: [], status: 'In Stock',
-    discountPrice: '', featured: false,
-    createdAt: '', updatedAt: ''
+    name: '',
+    description: '',
+    category: '',
+    brand: '',
+    gender: '',
+    size: '',
+    color: '',
+    price: '',
+    stock: '',
+    images: [],
+    status: 'In Stock',
+    discountPrice: '',
+    featured: false,
+    createdAt: '',
+    updatedAt: '',
   });
+
   const [variantId, setVariantId] = useState(null);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [errors, setErrors] = useState({});
-  const { t } = useLanguage();
 
+  // ==========================================================
+  // 1. Populate form – သေချာစွာ variant id ရယူခြင်း
+  // ==========================================================
   useEffect(() => {
     if (initialData) {
-      const variant = initialData.variants?.[0] || {};
-      const primaryImage = initialData.images?.find(img => img.is_primary)?.image_url
-                         || initialData.images?.[0]?.image_url
-                         || '';
+      // 🔥 variants သည် array ဖြစ်ရမည်
+      const variant = Array.isArray(initialData.variants) && initialData.variants.length > 0
+        ? initialData.variants[0]
+        : {};
+
+      const primaryImage =
+        initialData.images?.find((img) => img.is_primary)?.image_url ||
+        initialData.images?.[0]?.image_url ||
+        '';
+
+      // ✅ variant id ကို သိမ်းပါ (null ဖြစ်နိုင်သည်)
       setVariantId(variant.id || null);
+      console.log('🔍 variantId from initialData:', variant.id);
+
       setFormData({
         name: initialData.name || '',
         description: initialData.description || '',
@@ -41,17 +66,26 @@ function UploadForm({ initialData, onSubmit, loading }) {
         discountPrice: '',
         featured: false,
         createdAt: initialData.created_at ? initialData.created_at.slice(0, 16) : '',
-        updatedAt: initialData.updated_at ? initialData.updated_at.slice(0, 16) : ''
+        updatedAt: initialData.updated_at ? initialData.updated_at.slice(0, 16) : '',
       });
+    } else {
+      // Create mode – reset variantId
+      setVariantId(null);
     }
   }, [initialData]);
 
+  // ==========================================================
+  // 2. Handle form changes
+  // ==========================================================
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  // ==========================================================
+  // 3. Image URL management
+  // ==========================================================
   const addImageUrl = () => {
     const url = imageUrlInput.trim();
     if (!url) {
@@ -62,14 +96,20 @@ function UploadForm({ initialData, onSubmit, loading }) {
       alert(t('url_exists') || 'This URL already exists');
       return;
     }
-    setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+    setFormData((prev) => ({ ...prev, images: [...prev.images, url] }));
     setImageUrlInput('');
   };
 
   const removeImage = (index) => {
-    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
   };
 
+  // ==========================================================
+  // 4. Validation
+  // ==========================================================
   const validate = () => {
     const err = {};
     if (!formData.name) err.name = t('required');
@@ -80,34 +120,59 @@ function UploadForm({ initialData, onSubmit, loading }) {
     return Object.keys(err).length === 0;
   };
 
+  // ==========================================================
+  // 5. Submit – Create နှင့် Update ခွဲခြားခြင်း
+  // ==========================================================
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validate()) return;
 
+    // ၁. gender ကို Uppercase ဖြစ်အောင် ပြုလုပ်ခြင်း
+    const genderValue = formData.gender ? formData.gender.toUpperCase() : 'UNISEX';
+
+    // ၂. variants array ကို ဆောက်ပါ
+    const variants = [
+      {
+        color: formData.color || '',
+        size: formData.size || '',
+        stock: parseInt(formData.stock, 10) || 0,
+        status: formData.status === 'In Stock' ? 'IN_STOCK' : 'OUT_OF_STOCK',
+      },
+    ];
+
+    // 🔥 Update လုပ်ချိန်တွင် id ထည့်ပါ
+    if (variantId) {
+      variants[0].id = String(variantId);
+      console.log('✅ Update mode: adding variant id:', variants[0].id);
+    } else {
+      console.log('✅ Create mode: no variant id');
+    }
+
+    // ၃. ပုံများကို ဆောက်ပါ
+    const images = formData.images.map((url, idx) => ({
+      image_url: url,
+      is_primary: idx === 0,
+    }));
+
+    // ၄. backendData ကို ဆောက်ပါ
     const backendData = {
       name: formData.name,
       description: formData.description || '',
       category: formData.category,
       brand: formData.brand || '',
-      gender: formData.gender || 'UNISEX',
+      gender: genderValue,
       price: parseFloat(formData.price),
-      variantId: variantId, // <-- include the ID for updates
-      size: formData.size || '',
-      color: formData.color || '',
-      stock: parseInt(formData.stock) || 0,
-      status: formData.status === 'In Stock' ? 'IN_STOCK' : 'OUT_OF_STOCK',
-      images: formData.images.map((url, idx) => ({
-        image_url: url,
-        is_primary: idx === 0,
-      })),
+      variants: variants,
+      images: images,
     };
+
+    console.log('📦 Sending productData:', JSON.stringify(backendData, null, 2));
     onSubmit(backendData);
   };
 
-  // ... (rest of the JSX remains the same, with t() for labels)
-  // ... (I'm not repeating the full JSX for brevity; copy from your previous version)
-
-
+  // ==========================================================
+  // 6. Render – JSX (ယခင်အတိုင်း)
+  // ==========================================================
   return (
     <div className="card p-6 dark:bg-gray-800">
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -144,9 +209,16 @@ function UploadForm({ initialData, onSubmit, loading }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">{t('category')} *</label>
-                <select name="category" value={formData.category} onChange={handleChange} className="input-field">
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="input-field"
+                >
                   <option value="">{t('select')}</option>
-                  {categories.map(c => <option key={c}>{c}</option>)}
+                  {categories.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
                 </select>
                 {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
               </div>
@@ -164,24 +236,45 @@ function UploadForm({ initialData, onSubmit, loading }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">{t('gender')}</label>
-                <select name="gender" value={formData.gender} onChange={handleChange} className="input-field">
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="input-field"
+                >
                   <option value="">{t('select')}</option>
-                  {genders.map(g => <option key={g}>{g}</option>)}
+                  {genders.map((g) => (
+                    <option key={g}>{g}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('size')}</label>
-                <select name="size" value={formData.size} onChange={handleChange} className="input-field">
+                <select
+                  name="size"
+                  value={formData.size}
+                  onChange={handleChange}
+                  className="input-field"
+                >
                   <option value="">{t('select')}</option>
-                  {sizes.map(s => <option key={s}>{s}</option>)}
+                  {sizes.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
                 </select>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">{t('color')}</label>
-              <select name="color" value={formData.color} onChange={handleChange} className="input-field">
+              <select
+                name="color"
+                value={formData.color}
+                onChange={handleChange}
+                className="input-field"
+              >
                 <option value="">{t('select')}</option>
-                {colors.map(c => <option key={c}>{c}</option>)}
+                {colors.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -230,7 +323,12 @@ function UploadForm({ initialData, onSubmit, loading }) {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('status_label')}</label>
-                <select name="status" value={formData.status} onChange={handleChange} className="input-field">
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="input-field"
+                >
                   <option>{t('in_stock')}</option>
                   <option>{t('out_of_stock')}</option>
                 </select>
@@ -264,7 +362,6 @@ function UploadForm({ initialData, onSubmit, loading }) {
                 onChange={handleChange}
               />
               <label className="text-sm font-medium">{t('featured_product')}</label>
-              {/* <span className="text-xs text-gray-400">{t('frontend_only')}</span> */}
             </div>
 
             {/* Image URLs */}
@@ -298,7 +395,9 @@ function UploadForm({ initialData, onSubmit, loading }) {
                         src={url}
                         alt={`Product ${idx + 1}`}
                         className="w-full h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                        onError={(e) => { e.target.src = 'https://via.placeholder.com/80?text=Invalid'; }}
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/80?text=Invalid';
+                        }}
                       />
                       <button
                         type="button"
@@ -321,10 +420,18 @@ function UploadForm({ initialData, onSubmit, loading }) {
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button type="button" className="btn-secondary" onClick={() => window.history.back()}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => window.history.back()}
+          >
             {t('cancel')}
           </button>
-          <button type="submit" className="btn-primary flex items-center gap-2" disabled={loading}>
+          <button
+            type="submit"
+            className="btn-primary flex items-center gap-2"
+            disabled={loading}
+          >
             <FiSave /> {initialData ? t('update') : t('save')}
           </button>
         </div>
